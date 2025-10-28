@@ -1,0 +1,5 @@
+tasks:
+  cleanup:
+    run: echo "Cleaning up..."
+  nose-test:
+    run: echo "Running nose tests..."
