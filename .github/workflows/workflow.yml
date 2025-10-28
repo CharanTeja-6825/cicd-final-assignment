@@ -1,14 +1,17 @@
 name: CI Workflow
-
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - name: Run Lint
         run: echo "Linting..."
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Test
+        run: echo "Testing..."
