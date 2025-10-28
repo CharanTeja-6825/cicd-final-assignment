@@ -1,0 +1,311 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: cicd-pipeline-simulation
+  namespace: default
+spec:
+  description: |
+    This pipeline simulates a complete CI/CD workflow with workspace management,
+    repository cloning, test execution, application log monitoring, and cleanup.
+  params:
+  - name: repo-url
+    type: string
+    description: The git repository URL to clone
+    default: "https://github.com/CharanTeja-6825/cicd-final-assignment"
+  - name: revision
+    type: string
+    description: The git revision to checkout
+    default: "main"
+  - name: image-reference
+    type: string
+    description: Reference of the image buildah will produce
+    default: "quay.io/example/cicd-app:latest"
+  workspaces:
+  - name: shared-data
+    description: |
+      This workspace contains the cloned repo files, so they can be read by the
+      next task.
+  - name: empty-dir
+    description: |
+      This workspace is used for temporary files and build artifacts.
+  tasks:
+  - name: fetch-source
+    taskRef:
+      name: git-clone
+      kind: ClusterTask
+    workspaces:
+    - name: output
+      workspace: shared-data
+    params:
+    - name: url
+      value: $(params.repo-url)
+    - name: revision
+      value: $(params.revision)
+  - name: run-tests
+    runAfter: ["fetch-source"]
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: unit-tests
+        image: node:18-alpine
+        workingDir: $(workspaces.source.path)
+        script: |
+          #!/bin/sh
+          echo "🧪 Running unit tests..."
+          echo "Setting up test environment..."
+          
+          # Simulate test setup
+          sleep 2
+          
+          # Mock test results
+          echo "✅ Test Suite: Authentication - PASSED"
+          echo "✅ Test Suite: API Endpoints - PASSED"
+          echo "✅ Test Suite: Database Operations - PASSED"
+          echo "✅ Test Suite: Security Validation - PASSED"
+          
+          echo "📊 Test Results Summary:"
+          echo "  - Total Tests: 47"
+          echo "  - Passed: 47"
+          echo "  - Failed: 0"
+          echo "  - Coverage: 89.2%"
+          
+          echo "🎉 All tests passed successfully!"
+      - name: integration-tests
+        image: node:18-alpine
+        workingDir: $(workspaces.source.path)
+        script: |
+          #!/bin/sh
+          echo "🔗 Running integration tests..."
+          
+          # Simulate integration test setup
+          echo "Starting test services..."
+          sleep 3
+          
+          echo "✅ Integration Test: User Registration Flow - PASSED"
+          echo "✅ Integration Test: Payment Processing - PASSED"
+          echo "✅ Integration Test: Email Notifications - PASSED"
+          echo "✅ Integration Test: External API Integration - PASSED"
+          
+          echo "📊 Integration Test Results:"
+          echo "  - Total Integration Tests: 12"
+          echo "  - Passed: 12"
+          echo "  - Failed: 0"
+          
+          echo "🎉 Integration tests completed successfully!"
+    workspaces:
+    - name: source
+      workspace: shared-data
+  - name: build-application
+    runAfter: ["run-tests"]
+    taskSpec:
+      workspaces:
+      - name: source
+      params:
+      - name: IMAGE
+        type: string
+      steps:
+      - name: build
+        image: quay.io/buildah/stable:v1.23.0
+        workingDir: $(workspaces.source.path)
+        script: |
+          #!/bin/bash
+          echo "🏗️  Building application image..."
+          echo "Using buildah version: $(buildah --version)"
+          
+          # Simulate build process
+          echo "📦 Creating Dockerfile..."
+          cat > Dockerfile << 'EOF'
+          FROM node:18-alpine
+          WORKDIR /app
+          COPY package*.json ./
+          RUN npm ci --only=production
+          COPY . .
+          EXPOSE 3000
+          CMD ["npm", "start"]
+          EOF
+          
+          echo "🔨 Building container image..."
+          # buildah bud -f Dockerfile -t $(params.IMAGE) .
+          echo "✅ Image built successfully: $(params.IMAGE)"
+          
+          echo "📋 Image Details:"
+          echo "  - Base Image: node:18-alpine"
+          echo "  - Image Size: ~95MB"
+          echo "  - Layers: 8"
+          echo "  - Build Time: 2m 34s"
+        securityContext:
+          privileged: true
+      params:
+      - name: IMAGE
+        value: $(params.image-reference)
+    workspaces:
+    - name: source
+      workspace: shared-data
+  - name: show-app-logs
+    runAfter: ["build-application"]
+    taskSpec:
+      steps:
+      - name: simulate-app-logs
+        image: alpine:3.18
+        script: |
+          #!/bin/sh
+          echo "📋 Simulating application logs..."
+          echo "===========================================\n"
+          
+          # Application startup logs
+          echo "[2024-01-15 10:30:45] INFO  - Application starting up..."
+          echo "[2024-01-15 10:30:45] INFO  - Loading configuration from environment"
+          echo "[2024-01-15 10:30:46] INFO  - Database connection established: postgresql://db:5432/app"
+          echo "[2024-01-15 10:30:46] INFO  - Redis cache connected: redis://cache:6379"
+          echo "[2024-01-15 10:30:47] INFO  - Starting HTTP server on port 3000"
+          echo "[2024-01-15 10:30:47] INFO  - Health check endpoint available at /health"
+          echo "[2024-01-15 10:30:47] INFO  - Metrics endpoint available at /metrics"
+          echo "[2024-01-15 10:30:48] INFO  - ✅ Application successfully started\n"
+          
+          # Sample API request logs
+          echo "[2024-01-15 10:31:12] INFO  - GET /api/users/profile - 200 OK - 45ms"
+          echo "[2024-01-15 10:31:25] INFO  - POST /api/auth/login - 200 OK - 123ms"
+          echo "[2024-01-15 10:31:33] INFO  - GET /api/dashboard/stats - 200 OK - 67ms"
+          echo "[2024-01-15 10:31:45] INFO  - PUT /api/users/settings - 200 OK - 89ms"
+          echo "[2024-01-15 10:31:52] INFO  - DELETE /api/sessions/abc123 - 204 No Content - 23ms\n"
+          
+          # System metrics
+          echo "[2024-01-15 10:32:00] INFO  - System Metrics:"
+          echo "[2024-01-15 10:32:00] INFO  -   CPU Usage: 23.4%"
+          echo "[2024-01-15 10:32:00] INFO  -   Memory Usage: 145MB / 512MB (28.3%)"
+          echo "[2024-01-15 10:32:00] INFO  -   Active Connections: 15"
+          echo "[2024-01-15 10:32:00] INFO  -   Request Rate: 1.2 req/sec"
+          echo "[2024-01-15 10:32:00] INFO  -   Response Time (avg): 67ms\n"
+          
+          # Business logic logs
+          echo "[2024-01-15 10:32:15] INFO  - Order #12345 processed successfully"
+          echo "[2024-01-15 10:32:18] INFO  - Email notification sent to user@example.com"
+          echo "[2024-01-15 10:32:22] INFO  - Cache invalidated for user-profile-789"
+          echo "[2024-01-15 10:32:28] INFO  - Background job 'data-sync' completed in 1.2s\n"
+          
+          echo "===========================================\n"
+          echo "📊 Log Summary:"
+          echo "  - Total Log Entries: 18"
+          echo "  - INFO Level: 18"
+          echo "  - WARNING Level: 0"
+          echo "  - ERROR Level: 0"
+          echo "  - Average Response Time: 67ms"
+          echo "  - System Health: ✅ Healthy"
+  - name: deploy-to-staging
+    runAfter: ["show-app-logs"]
+    taskSpec:
+      params:
+      - name: IMAGE
+        type: string
+      steps:
+      - name: deploy
+        image: quay.io/openshift/origin-cli:latest
+        script: |
+          #!/bin/bash
+          echo "🚀 Deploying to staging environment..."
+          
+          # Simulate OpenShift deployment
+          echo "📋 Deployment Configuration:"
+          echo "  - Environment: staging"
+          echo "  - Namespace: cicd-staging"
+          echo "  - Image: $(params.IMAGE)"
+          echo "  - Replicas: 2"
+          echo "  - Memory Limit: 512Mi"
+          echo "  - CPU Limit: 500m\n"
+          
+          echo "🔄 Applying Kubernetes manifests..."
+          sleep 2
+          
+          echo "✅ Deployment 'cicd-app' created"
+          echo "✅ Service 'cicd-app-service' created"
+          echo "✅ Route 'cicd-app-route' created"
+          
+          echo "\n🔍 Deployment Status:"
+          echo "  - Pods Ready: 2/2"
+          echo "  - Service Status: Active"
+          echo "  - Route URL: https://cicd-app-staging.apps.cluster.example.com"
+          
+          echo "\n🎉 Application successfully deployed to staging!"
+      params:
+      - name: IMAGE
+        value: $(params.image-reference)
+  - name: cleanup
+    runAfter: ["deploy-to-staging"]
+    taskSpec:
+      workspaces:
+      - name: source
+      steps:
+      - name: cleanup-workspace
+        image: alpine:3.18
+        workingDir: $(workspaces.source.path)
+        script: |
+          #!/bin/sh
+          echo "🧹 Starting cleanup process..."
+          
+          # Cleanup build artifacts
+          echo "🗂️  Removing build artifacts..."
+          rm -rf node_modules/ 2>/dev/null || true
+          rm -rf dist/ 2>/dev/null || true
+          rm -rf .cache/ 2>/dev/null || true
+          rm -f *.log 2>/dev/null || true
+          
+          echo "📦 Cleaning up temporary files..."
+          find . -name "*.tmp" -delete 2>/dev/null || true
+          find . -name "*.temp" -delete 2>/dev/null || true
+          
+          echo "🔍 Workspace contents after cleanup:"
+          ls -la
+          
+          echo "📊 Cleanup Summary:"
+          echo "  - Temporary files removed: ✅"
+          echo "  - Build artifacts cleaned: ✅"
+          echo "  - Cache directories cleared: ✅"
+          echo "  - Log files archived: ✅"
+          
+          echo "\n🎉 Cleanup completed successfully!"
+          echo "💾 Workspace size reduced by ~85%"
+    workspaces:
+    - name: source
+      workspace: shared-data
+  finally:
+  - name: pipeline-summary
+    taskSpec:
+      steps:
+      - name: summary
+        image: alpine:3.18
+        script: |
+          #!/bin/sh
+          echo "\n🎯 ========================================"
+          echo "     CI/CD PIPELINE EXECUTION SUMMARY"
+          echo "========================================\n"
+          
+          echo "📋 Pipeline Details:"
+          echo "  - Pipeline Name: cicd-pipeline-simulation"
+          echo "  - Repository: $(params.repo-url)"
+          echo "  - Branch: $(params.revision)"
+          echo "  - Image: $(params.image-reference)"
+          
+          echo "\n✅ Completed Tasks:"
+          echo "  1. 🔄 Source Code Fetch"
+          echo "  2. 🧪 Unit & Integration Tests"
+          echo "  3. 🏗️  Application Build"
+          echo "  4. 📋 Application Logs Review"
+          echo "  5. 🚀 Staging Deployment"
+          echo "  6. 🧹 Workspace Cleanup"
+          
+          echo "\n📊 Pipeline Metrics:"
+          echo "  - Total Execution Time: ~8m 45s"
+          echo "  - Tests Passed: 59/59 (100%)"
+          echo "  - Code Coverage: 89.2%"
+          echo "  - Build Status: ✅ Success"
+          echo "  - Deployment Status: ✅ Success"
+          
+          echo "\n🌐 Access URLs:"
+          echo "  - Staging App: https://cicd-app-staging.apps.cluster.example.com"
+          echo "  - Health Check: https://cicd-app-staging.apps.cluster.example.com/health"
+          echo "  - Metrics: https://cicd-app-staging.apps.cluster.example.com/metrics"
+          
+          echo "\n🎉 CI/CD Pipeline completed successfully!"
+          echo "🚀 Application is ready for production deployment."
+          echo "========================================\n"
